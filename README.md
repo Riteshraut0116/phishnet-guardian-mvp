@@ -87,7 +87,7 @@ Open **http://localhost:8000**
 
 ### 📸 UI Dashboard Preview
 
-![PhishNet Guardian Dashboard Preview](phishnet-guardian-mvp\docs\screenshot.png)
+![PhishNet Guardian Dashboard Preview](phishnet-guardian-mvp/docs/screenshot.png)
 
 ---
 
