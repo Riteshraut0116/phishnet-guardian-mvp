@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>PhishNet Guardian – AMD Slingshot MVP</title>
+
+  <link rel="icon" href="assets/shield.svg"/>
+  <link rel="stylesheet" href="assets/styles.css"/>
+</head>
+<body>
+  <!-- Top Bar / Hero -->
+  <header class="hero">
+    <div class="hero__content">
+      <div class="brand">
+        <img src="assets/shield.svg" alt="Shield" class="logo"/>
+        <div>
+          <h1>PhishNet Guardian</h1>
+          <p class="subtitle">AI Anti‑Scam &amp; Digital Safety Copilot</p>
+        </div>
+      </div>
+
+      <div class="actions">
+        <!-- Theme toggle is wired by script.js (data-theme on <html>) -->
+        <button id="themeToggle" class="btn outline" title="Toggle theme">🌓</button>
+        <a class="btn" href="https://github.com/" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="grid">
+      <!-- Text Scan -->
+      <div class="card span-2">
+        <h2>Scan a Message</h2>
+        <p>Paste any SMS/Email/WhatsApp message below and hit <strong>Analyze</strong>.</p>
+
+        <form id="scanForm">
+          <label for="text">Suspicious message</label>
+          <textarea id="text" rows="6"
+            placeholder="e.g., Your KYC is pending. Update within 1 hour: http://bit.ly/xyz ..."></textarea>
+
+          <div class="row">
+            <label for="language" style="min-width:90px">Language</label>
+            <select id="language" class="select">
+              <option value="en" selected>English</option>
+              <option value="hi">हिन्दी</option>
+              <option value="mr">मराठी</option>
+            </select>
+
+            <button class="btn" type="submit" id="analyzeBtn">Analyze</button>
+            <span id="riskBadge" class="pill">—</span>
+            <span id="confBadge" class="pill">—</span>
+          </div>
+        </form>
+
+        <div id="result" class="result hidden"></div>
+      </div>
+
+      <!-- Image Scan -->
+      <div class="card">
+        <h2>Scan a Screenshot</h2>
+        <p>Drop a WhatsApp/SMS/email screenshot to analyze (Gemini Vision if key is set).</p>
+
+        <form id="imgForm" class="uploader">
+          <div class="dropzone" id="dropzone">
+            <span>📷 Click to select an image</span>
+            <input type="file" id="imgFile" accept="image/*"/>
+          </div>
+
+          <div class="row">
+            <label for="imgLanguage" style="min-width:90px">Language</label>
+            <select id="imgLanguage" class="select">
+              <option value="en" selected>English</option>
+              <option value="hi">हिन्दी</option>
+              <option value="mr">मराठी</option>
+            </select>
+
+            <button class="btn" type="submit" id="imgBtn">Analyze Screenshot</button>
+          </div>
+        </form>
+
+        <!-- Preview block required by script.js -->
+        <div id="imgPreviewWrap" class="img-preview hidden">
+          <img id="imgPreview" alt="Selected image preview"/>
+          <div class="img-meta">
+            <span id="imgName">—</span>
+            <span id="imgSize" class="pill">—</span>
+          </div>
+        </div>
+
+        <div id="imgResult" class="result hidden"></div>
+      </div>
+
+      <!-- Dashboard -->
+      <div class="card">
+        <h2>Dashboard</h2>
+        <div class="kpis">
+          <div class="kpi">
+            <span id="totalScans" class="kpi__value">0</span>
+            <span class="kpi__label">Total Scans</span>
+          </div>
+          <div class="kpi">
+            <span id="scamCount" class="kpi__value danger">0</span>
+            <span class="kpi__label">Scam</span>
+          </div>
+          <div class="kpi">
+            <span id="suspCount" class="kpi__value warn">0</span>
+            <span class="kpi__label">Suspicious</span>
+          </div>
+          <div class="kpi">
+            <span id="safeCount" class="kpi__value good">0</span>
+            <span class="kpi__label">Safe</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- History -->
+      <div class="card span-3">
+        <h2>History</h2>
+        <div class="tools">
+          <a class="btn small outline" href="/api/history.csv" download>Export CSV</a>
+        </div>
+
+        <div class="filters">
+          <span class="filter active" data-filter="All">All</span>
+          <span class="filter" data-filter="Scam">Scam</span>
+          <span class="filter" data-filter="Suspicious">Suspicious</span>
+          <span class="filter" data-filter="Safe">Safe</span>
+        </div>
+
+        <div id="history" class="history"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>© Built for <strong>AMD Slingshot Hackathon</strong> by Radeon Rizers • <span id="year"></span></p>
+  </footer>
+
+  <script src="assets/script.js"></script>
+</body>
+</html>

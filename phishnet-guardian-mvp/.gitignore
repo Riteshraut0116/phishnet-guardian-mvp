@@ -1,0 +1,68 @@
+# --- Python / FastAPI ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+.python-version
+
+# Virtual envs
+.venv/
+venv/
+ENV/
+env/
+
+# Test / coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Logs & runtime
+*.log
+*.pid
+
+# --- Project data/secrets ---
+# Local env & keys
+.env
+.env.*   # e.g., .env.local, .env.dev
+
+# Local databases / caches
+phishnet.db
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# Upload temp / previews (keep empty dir if needed via .gitkeep)
+uploads/
+tmp/
+cache/
+
+# --- Frontend (vanilla, no bundler) ---
+# If you later add bundlers, uncomment common ignores:
+# node_modules/
+# *.map
+# .parcel-cache/
+# .sass-cache/
+
+# --- Editors / OS ---
+# VS Code
+.vscode/
+# PyCharm / JetBrains
+.idea/
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+# Windows
+Thumbs.db
+Desktop.ini
+
+# --- Containers / CI (uncomment if added) ---
+# .docker/
+# Dockerfile.local
+# .github/
