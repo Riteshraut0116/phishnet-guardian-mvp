@@ -17,6 +17,43 @@ Detect and prevent phishing/scam messages (SMS/Email/WhatsApp/UPI/job scams) usi
 
 ---
 
+## 🚀 Live Demo
+
+Experience **PhishNet Guardian** live — zero installation needed!
+
+---
+
+### 🌐 Frontend (Netlify)
+🔗 **Live UI:**  
+https://phishnetmvp.netlify.app/
+
+This is the interactive interface where users can paste suspicious messages or upload scam screenshots and get instant AI-powered analysis.
+
+---
+
+### 🧠 Backend API (Render – FastAPI)
+🔗 **API Base URL:**  
+https://phishnet-guardian-mvp.onrender.com
+
+The backend handles:
+- Text & image scanning  
+- Gemini AI inference  
+- Scam classification  
+- Red‑flag reasoning  
+- Micro‑lessons & quizzes  
+- History storage (SQLite)  
+- KPI stats  
+
+> Your frontend communicates directly with this API, so both services must be live.
+
+---
+
+## 📘 API Documentation (Swagger)
+Explore every endpoint interactively:  
+https://phishnet-guardian-mvp.onrender.com/docs
+
+---
+
 ## ✨ Highlights
 
 - **Text analysis** (`/api/scan`) and **Screenshot analysis** (`/api/scan-image`) — Gemini‑only, strict JSON
