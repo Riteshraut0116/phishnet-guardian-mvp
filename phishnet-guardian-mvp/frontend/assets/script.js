@@ -1,7 +1,7 @@
 // frontend/assets/script.js
 
 // ---------------- CONFIG ----------------
-const API = '/api';
+const API = "https://phishnet-guardian-mvp.onrender.com";
 const $ = (s) => document.querySelector(s);
 
 // ---------------- THEME TOGGLE (persist) ----------------
