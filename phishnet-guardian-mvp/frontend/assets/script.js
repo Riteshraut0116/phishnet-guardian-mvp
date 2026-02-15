@@ -1,12 +1,12 @@
 // frontend/assets/script.js
 
 // ---------------- CONFIG ----------------
-const API = "https://phishnet-guardian-mvp.onrender.com";
+const API = "https://phishnet-guardian-mvp.onrender.com"; 
 const $ = (s) => document.querySelector(s);
 
 // ---------------- THEME TOGGLE (persist) ----------------
 (function initTheme() {
-  const root = document.documentElement; // <html>
+  const root = document.documentElement;
   const saved = localStorage.getItem('theme') || 'dark';
   root.setAttribute('data-theme', saved);
 
@@ -30,11 +30,12 @@ function formatSize(bytes){
 function showErrorBox(container, err){
   const msg = (typeof err === 'string') ? err : (err && err.message) || 'Unknown error';
   container.classList.remove('hidden');
-  container.innerHTML = `<div class="section">⚠️ Error: ${msg}</div>`;
+  container.innerHTML = `
+    <div class="error-box">⚠️ Error: ${msg}</div>
+  `;
 }
 
 async function parseResponse(res){
-  // Try reading FastAPI detail first
   const text = await res.text();
   try {
     const json = JSON.parse(text);
@@ -47,7 +48,7 @@ async function parseResponse(res){
     if (!res.ok) {
       throw new Error(text || `HTTP ${res.status}`);
     }
-    // Not JSON but OK (shouldn't happen for our API)
+    // Not JSON but OK (unlikely)
     return {};
   }
 }
@@ -58,8 +59,8 @@ function showImagePreview(file){
   const img = $('#imgPreview');
   const name = $('#imgName');
   const size = $('#imgSize');
-
   if (!file || !wrap || !img) return;
+
   const url = URL.createObjectURL(file);
   img.src = url;
   if (name) name.textContent = file.name || 'image';
@@ -105,13 +106,13 @@ function renderQuiz(container, quiz) {
   }
 
   container.innerHTML = `
-    <div class="section">
-      <strong>Quiz</strong>
-      <div style="margin:6px 0 10px 0">${q.question}</div>
-      <div id="quizOptions">${options.map((o)=>`
-        <button class="btn outline quiz-opt" data-val="${String(o).replace(/"/g,'&quot;')}">${o}</button>
-      `).join('')}</div>
-      <div id="quizFeedback" style="margin-top:10px;color:var(--muted)"></div>
+    <div class="quiz-wrap">
+      <div class="quiz-title">Quiz</div>
+      <div class="quiz-q">${q.question}</div>
+      <div class="quiz-opts">
+        ${options.map((o)=>`<button class="quiz-opt outline" data-val="${o}">${o}</button>`).join('')}
+      </div>
+      <div id="quizFeedback" class="quiz-feedback"></div>
     </div>
   `;
 
@@ -159,10 +160,7 @@ function renderResult(r) {
   const quiz = r.quiz || {};
   const summary = r.summary || r.micro_lesson || '';
 
-  const redFlagsHtml = flags.length
-    ? flags.map(f => `<span class="pill">${f}</span>`).join(' ')
-    : '—';
-
+  const redFlagsHtml = flags.length ? flags.map(f => `<span class="flag">${f}</span>`).join(' ') : '—';
   const list = arr => arr.map(a => `<li>${a}</li>`).join('');
 
   // Optional badges if present in the page
@@ -173,27 +171,35 @@ function renderResult(r) {
 
   // Build base sections
   resultBox.innerHTML = `
-    <div class="section"><strong>Summary</strong><div>${summary}</div></div>
+    <section class="result-summary">
+      <h3>Summary</h3>
+      <p>${summary}</p>
+    </section>
 
-    <div class="section"><strong>Red Flags</strong>
+    <section class="result-flags">
+      <h3>Red Flags</h3>
       <div>${redFlagsHtml}</div>
-    </div>
+    </section>
 
-    <div class="section"><strong>What To Do</strong>
+    <section class="result-actions">
+      <h3>What To Do</h3>
       <ul>${list(actions)}</ul>
-    </div>
+    </section>
 
-    <div class="section"><strong>What NOT To Do</strong>
+    <section class="result-notto">
+      <h3>What NOT To Do</h3>
       <ul>${list(notToDo)}</ul>
-    </div>
+    </section>
 
-    <div class="section"><strong>Plan</strong>
-      <ol>${plan.map(p => `<li>${p}</li>`).join('')}</ol>
-    </div>
+    <section class="result-plan">
+      <h3>Plan</h3>
+      <ul>${plan.map(p => `<li>${p}</li>`).join('')}</ul>
+    </section>
 
-    <div class="section"><strong>Micro‑Lesson</strong>
+    <section class="result-lesson">
+      <h3>Micro‑Lesson</h3>
       <div>${r.micro_lesson || ''}</div>
-    </div>
+    </section>
   `;
 
   // Render quiz block after base sections
@@ -202,17 +208,49 @@ function renderResult(r) {
   resultBox.appendChild(quizHtml);
 }
 
+// ---------------- API HELPERS ----------------
+async function scanText({ text, lang = "en" }) {
+  console.log("Calling:", `${API}/api/scan`);
+  const res = await fetch(`${API}/api/scan`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, lang })
+  });
+  return parseResponse(res);
+}
+
+async function scanImage(file, lang = "en") {
+  const form = new FormData();
+  form.append("file", file); // MUST be "file" to match FastAPI UploadFile param
+  form.append("lang", lang);
+
+  console.log("Calling:", `${API}/api/scan-image`);
+  const res = await fetch(`${API}/api/scan-image`, { method: "POST", body: form });
+  return parseResponse(res);
+}
+
+async function getHistory(limit = 50) {
+  console.log("Calling:", `${API}/api/history?limit=${limit}`);
+  const res = await fetch(`${API}/api/history?limit=${limit}`);
+  return parseResponse(res);
+}
+
+async function getStats(){
+  console.log("Calling:", `${API}/api/stats`);
+  const res = await fetch(`${API}/api/stats`);
+  return parseResponse(res);
+}
+
 // ---------------- ANALYZE (TEXT) ----------------
 async function onAnalyze(ev) {
   ev.preventDefault();
-
   const resultBox = $('#result');
   const textEl = $('#text');
   const langEl = $('#language');
   const btn = $('#analyzeBtn') || $('#runBtn');
 
-  const text = (textEl && textEl.value || '').trim();
-  const language = (langEl && langEl.value) || undefined;
+  const text = (textEl?.value || '').trim();
+  const lang = (langEl?.value) || 'en';
 
   if (text.length < 5) {
     alert('Please enter a longer message to analyze.');
@@ -223,12 +261,7 @@ async function onAnalyze(ev) {
   if (btn) { btn.disabled = true; btn.textContent = 'Analyzing…'; }
 
   try {
-    const res = await fetch(`${API}/scan`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, language }),
-    });
-    const data = await parseResponse(res);
+    const data = await scanText({ text, lang });
     renderResult(data);
     await loadHistory();
     await loadStats();
@@ -242,26 +275,20 @@ async function onAnalyze(ev) {
 // ---------------- ANALYZE (IMAGE) ----------------
 async function onAnalyzeImage(ev) {
   ev.preventDefault();
-
   const imgBox = $('#imgResult') || $('#result');
   const fileEl = $('#imgFile');
   const langEl = $('#imgLanguage');
   const btn = $('#imgBtn');
 
-  const file = fileEl && fileEl.files && fileEl.files[0];
+  const file = fileEl?.files?.[0];
   if (!file) { alert('Select an image first.'); return; }
+  const lang = (langEl?.value) || 'en';
 
-  const language = (langEl && langEl.value) || 'en';
   const old = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Analyzing…'; }
 
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('language', language);
-
   try {
-    const res = await fetch(`${API}/scan-image`, { method:'POST', body: fd });
-    const data = await parseResponse(res);
+    const data = await scanImage(file, lang);
     renderResult(data);
     await loadHistory();
     await loadStats();
@@ -276,25 +303,17 @@ async function onAnalyzeImage(ev) {
 async function loadHistory() {
   const hist = $('#history');
   if (!hist) return;
-
   try {
-    const res = await fetch(`${API}/history?limit=50`);
-    const data = await parseResponse(res);
-
+    const data = await getHistory(50);
     hist.innerHTML = (data.items || []).map(it => `
-      <div class="item">
-        <div>
-          <div style="font-size:12px;color:#a8b3d6">${new Date(it.created_at).toLocaleString()}</div>
-          <div>${(it.input_text || '').slice(0, 120)}</div>
-        </div>
-        <div>
-          <span class="pill">${it.classification || '-'}</span>
-          <span class="pill">${Math.round(((it.confidence || 0) * 100))}%</span>
-        </div>
+      <div class="hist-item">
+        <div class="hist-time">${new Date(it.created_at).toLocaleString()}</div>
+        <div class="hist-text">${(it.input_text || '').slice(0, 120)}</div>
+        <div class="hist-meta">${it.classification || '-'} ${Math.round(((it.confidence || 0) * 100))}%</div>
       </div>
     `).join('');
   } catch (e) {
-    hist.innerHTML = '<em>History unavailable</em>';
+    hist.innerHTML = 'History unavailable';
   }
 }
 
@@ -304,15 +323,12 @@ async function loadStats(){
   const scam = $('#scamCount');
   const susp = $('#suspCount');
   const safe = $('#safeCount');
-
   if (!total && !scam && !susp && !safe) return; // page may not have KPIs
 
   try {
-    const res = await fetch(`${API}/stats`);
-    const data = await parseResponse(res);
+    const data = await getStats();
     const dist = data.distribution || {};
     const t = data.total || 0;
-
     if (total) total.textContent = t;
     if (scam) scam.textContent = dist.Scam || 0;
     if (susp) susp.textContent = dist.Suspicious || 0;
