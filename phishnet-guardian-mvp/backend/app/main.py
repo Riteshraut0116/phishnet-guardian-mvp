@@ -3,9 +3,9 @@ import json
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Tuple
 
-from fastapi import FastAPI, HTTPException, Response, UploadFile, File
+from fastapi import FastAPI, HTTPException, Response, UploadFile, File, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -51,29 +51,91 @@ def _init_db() -> None:
 _init_db()
 
 
+# ---------- Language Helpers ----------
+SUPPORTED_BASE = {"en", "hi", "mr"}
+
+def _norm_accept_language(accept_language: str | None) -> Optional[str]:
+    """
+    Extract first language range from header, e.g.:
+      'hi-IN,hi;q=0.9,en;q=0.8' -> 'hi-IN'
+    """
+    if not accept_language:
+        return None
+    first = accept_language.split(",")[0].strip()
+    return first or None
+
+
+def _normalize_lang_tag(lang: Optional[str]) -> Optional[str]:
+    """
+    Normalize incoming language to a base tag the agent understands.
+
+    Returns:
+      - 'en' | 'hi' | 'mr' when recognized
+      - 'auto' when unknown or empty (let the model detect)
+      - None only when caller didn't specify and no header present;
+        we will convert None -> 'auto' right before calling the agent.
+    """
+    if not lang:
+        return None
+    tag = lang.strip().lower()
+    if tag == "auto":
+        return "auto"
+    base = tag.split("-")[0]
+    if base in SUPPORTED_BASE:
+        return base
+    return "auto"
+
+
 # ---------- Pydantic models ----------
 class ScanRequest(BaseModel):
     text: str = Field(..., min_length=5, description="Suspicious message text to analyze")
-    language: Optional[str] = Field(None, description="Preferred output language: 'en' | 'hi' | 'mr'")
+    # NOTE: allow region codes; we'll normalize to base
+    language: Optional[str] = Field(
+        None,
+        description="Preferred output language: 'en'|'hi'|'mr' or region like 'hi-IN'. "
+                    "If omitted, server uses Accept-Language or auto-detect."
+    )
 
 
 # ---------- FastAPI app ----------
-app = FastAPI(title="PhishNet Guardian – API", version="0.3.2")
+app = FastAPI(title="PhishNet Guardian – API", version="0.4.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],            # lock down in prod if needed
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=[
+        "Content-Type",
+        "Accept",
+        "Accept-Language",         # important for multilingual
+        "Authorization",
+        "X-Requested-With"
+    ],
 )
+
+# Simple request logger (helpful on Render)
+@app.middleware("http")
+async def access_log(request: Request, call_next):
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        # Minimal log; avoid dumping bodies in prod
+        print(
+            "REQ",
+            request.method,
+            request.url.path,
+            "| Accept-Language:",
+            request.headers.get("Accept-Language", "-"),
+            "| UA:",
+            request.headers.get("User-Agent", "-"),
+            flush=True,
+        )
 
 
 # ---------- Helpers ----------
-def _persist_result(
-    input_text: str,
-    result: Dict[str, Any],
-) -> None:
+def _persist_result(input_text: str, result: Dict[str, Any]) -> None:
     """Insert one scan row into SQLite, surfacing errors if any."""
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -106,6 +168,34 @@ def _persist_result(
         conn.close()
 
 
+def _resolve_language(request: Request, body_lang: Optional[str], query_lang: Optional[str] = None) -> str:
+    """
+    Resolve final language order:
+      1) explicit body param (language)
+      2) query param (?lang=)
+      3) Accept-Language header
+      4) auto (model detects)
+    """
+    # 1) body
+    lang = _normalize_lang_tag(body_lang)
+    if lang:
+        return lang
+
+    # 2) query
+    lang = _normalize_lang_tag(query_lang)
+    if lang:
+        return lang
+
+    # 3) Accept-Language
+    header_tag = _norm_accept_language(request.headers.get("Accept-Language"))
+    lang = _normalize_lang_tag(header_tag)
+    if lang:
+        return lang
+
+    # 4) default to 'auto' (let the model detect)
+    return "auto"
+
+
 # ---------- API Routes ----------
 @app.get("/api/health")
 def health():
@@ -113,12 +203,14 @@ def health():
 
 
 @app.post("/api/scan")
-def api_scan(req: ScanRequest):
+async def api_scan(req: ScanRequest, request: Request):
     """
     Text analysis (Gemini-only). If Gemini/auth/network fails, return a readable 500 detail.
+    Multilingual: picks language from body or Accept-Language or auto-detect.
     """
     try:
-        result = analyze_text(req.text, preferred_language=req.language)
+        final_lang = _resolve_language(request, req.language)
+        result = analyze_text(req.text, preferred_language=final_lang)
     except Exception as e:
         # Print full traceback on server for quick pinpointing
         import traceback; traceback.print_exc()
@@ -132,17 +224,29 @@ def api_scan(req: ScanRequest):
         import traceback; traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"DB write failed: {db_err}")
 
+    # Optionally echo which lang was used (handy for UI/debug)
+    result.setdefault("_lang_used", final_lang)
     return result
 
 
 @app.post("/api/scan-image")
-def api_scan_image(file: UploadFile = File(...), language: Optional[str] = None):
+async def api_scan_image(
+    request: Request,
+    file: UploadFile = File(...),
+    # allow query param ?lang=mr-IN
+    lang: Optional[str] = Query(None, description="Preferred language e.g. hi-IN, mr, en-US"),
+    language: Optional[str] = Query(None, description="Alias for lang")  # tolerate both names
+):
     """
-    Screenshot analysis (Gemini Vision). Same error reporting pattern.
+    Screenshot analysis (Gemini Vision).
+    Picks language from query, header, or auto-detect.
     """
+    # Prefer explicit 'lang' over 'language' if both present
+    query_lang = lang or language
     try:
         image_bytes = file.file.read()
-        result = _call_gemini_vision(image_bytes, preferred_language=language)
+        final_lang = _resolve_language(request, body_lang=None, query_lang=query_lang)
+        result = _call_gemini_vision(image_bytes, preferred_language=final_lang)
     except Exception as e:
         import traceback; traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
@@ -154,6 +258,7 @@ def api_scan_image(file: UploadFile = File(...), language: Optional[str] = None)
         import traceback; traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"DB write failed: {db_err}")
 
+    result.setdefault("_lang_used", final_lang)
     return result
 
 
