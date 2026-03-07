@@ -54,6 +54,25 @@ https://phishnet-guardian-mvp.onrender.com/docs
 
 ---
 
+## 🎥 Demo Video — PhishNet Guardian (MVP)
+
+Watch the end‑to‑end demo of **PhishNet Guardian** in action 🚀  
+
+▶️ **Demo Video Link:**  
+🔗 https://drive.google.com/file/d/1p7aJgjlRjdh-aGkuMazIIueii6kqBfjw/view?usp=sharing
+
+### What you’ll see in the demo:
+- 📨 **Live phishing & scam detection** for SMS, Email, WhatsApp & UPI messages  
+- 🧠 **Multi‑agent AI flow**: Intent → Analysis → Decision → Action  
+- 🚩 **Explainable AI output** with red flags & confidence score  
+- ✅ **Safe next‑step guidance** (Do / Don’t / Action Plan)  
+- 📚 **Micro‑learning & quiz** to educate users instantly  
+- 📊 **Dashboard & history tracking** in real time  
+
+> ⚡ The demo showcases both **text analysis** and **screenshot‑based scam detection** using Gemini AI.
+
+---
+
 ## ✨ Highlights
 
 - **Text analysis** (`/api/scan`) and **Screenshot analysis** (`/api/scan-image`) — Gemini‑only, strict JSON
